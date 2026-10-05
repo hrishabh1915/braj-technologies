@@ -1,0 +1,6 @@
+# robots.txt for BRAJ TECHNOLOGIES
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://ais-pre-fqg2p5nvjwhgik4y6vwdbt-861292615360.asia-southeast1.run.app/sitemap.xml

@@ -9,20 +9,68 @@ const LOGO_HEADER = "https://lh3.googleusercontent.com/aida-public/AB6AXuCM8ZBzN
 const HERO_CREST = "https://lh3.googleusercontent.com/aida-public/AB6AXuBJyIOFX3mkUKaYaiCfzYhUfk4ivNKJxOhhEBI1f7E3EVmXGyU9XbwqIs3-1qOWQaJyQUgYD8aigCZCJSeZsdQXfHIZjic9IjzLqhDjZChd1SFEpkwrMgPVG4UZplShKV3s_ecUDK0_XpSA4JiELRqePKI013SvRQiLEbyVs7VsDD6olHvMZxgXz3d6p1y-qfHTWomyHMtq6UERYAJs2uMOdM4nmAfqsTwRSM9mSOp-e02c6km0Xs1-ZATU2VmTU1RQzkg";
 const LOGO_FOOTER = "https://lh3.googleusercontent.com/aida-public/AB6AXuD4rlUmVWlXNIWHNhTWQv5rZZ9JG8OqdzQDn0_jpSa3nAfCSNPgr18YE1tSRIDnS7smqPRm4JGGV3zkA5H7JQyHGJJhIfHsbvBatO6stsxRBql4XhLmlcUokSpEezPiZSTUYF-JCfnIkyn2X3doXeQZB22px5-tHId5m-GQFUMv-iRitev-SLshQ5gMGz5c8tvkiaqOKj1ubcP2h9lFY0DOBZdWkFE4YJa5I8sC1G6Cp_AAYtW5psHL6dqOY3-8Em42RhQ";
 
-const FOCUS_PILLS = [
+const SERVICE_OPTIONS = [
   "AI Solutions",
   "Software Development",
   "Business Automation",
   "Business Systems",
-  "Digital Growth"
+  "Digital Growth",
+  "Other"
 ];
+
+// Official Business WhatsApp Configuration
+const WHATSAPP_NUMBER = "919111436410";
+const DEFAULT_PREFILLED_MESSAGE = "Hi BRAJ TECHNOLOGIES, I’d like to discuss a business/technology requirement.";
+const WHATSAPP_ENQUIRY_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(DEFAULT_PREFILLED_MESSAGE)}`;
+
+
+interface EnquiryPayload {
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  service: string;
+  details: string;
+  budgetTimeline?: string;
+}
+
+const buildWhatsAppEnquiryUrl = (data: EnquiryPayload) => {
+  const budget = data.budgetTimeline && data.budgetTimeline.trim() ? data.budgetTimeline.trim() : "Not specified";
+  const message = `Hi BRAJ TECHNOLOGIES,\n\nI’d like to discuss a business/technology requirement.\n\nName: ${data.name.trim()}\nCompany: ${data.company.trim()}\nEmail: ${data.email.trim()}\nPhone: ${data.phone.trim()}\nRequirement Type: ${data.service}\nBudget / Timeline: ${budget}\n\nRequirement Details:\n${data.details.trim()}\n\nPlease get in touch with me regarding this enquiry.`;
+
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+};
 
 export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [selectedFocus, setSelectedFocus] = useState("AI Solutions");
-  const [formData, setFormData] = useState({ name: '', email: '', scope: '' });
-  const [formSubmitted, setFormSubmitted] = useState(false);
+  const [enquiryModalOpen, setEnquiryModalOpen] = useState(false);
   const [liveTokenRate, setLiveTokenRate] = useState(4280);
+
+  // Modal Form State
+  const [modalForm, setModalForm] = useState<EnquiryPayload>({
+    name: '',
+    company: '',
+    email: '',
+    phone: '',
+    service: 'AI Solutions',
+    details: '',
+    budgetTimeline: ''
+  });
+  const [modalErrors, setModalErrors] = useState<Record<string, string>>({});
+  const [modalSubmittedUrl, setModalSubmittedUrl] = useState<string | null>(null);
+
+  // In-Page Section Form State
+  const [pageForm, setPageForm] = useState<EnquiryPayload>({
+    name: '',
+    company: '',
+    email: '',
+    phone: '',
+    service: 'AI Solutions',
+    details: '',
+    budgetTimeline: ''
+  });
+  const [pageErrors, setPageErrors] = useState<Record<string, string>>({});
+  const [pageSubmittedUrl, setPageSubmittedUrl] = useState<string | null>(null);
 
   // Subtle live telemetry pulse for real-time feel
   useEffect(() => {
@@ -35,10 +83,88 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Lock scroll when modal is active and listen to Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setEnquiryModalOpen(false);
+      }
+    };
+    if (enquiryModalOpen) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [enquiryModalOpen]);
+
+  const handleOpenEnquiryModal = (serviceDefault = 'AI Solutions') => {
+    setModalForm(prev => ({ ...prev, service: serviceDefault }));
+    setModalErrors({});
+    setModalSubmittedUrl(null);
+    setEnquiryModalOpen(true);
+  };
+
+  const handleModalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.email.trim()) return;
-    setFormSubmitted(true);
+    const errors: Record<string, string> = {};
+    if (!modalForm.name.trim()) errors.name = 'Name is required';
+    if (!modalForm.company.trim()) errors.company = 'Company / Business Name is required';
+    if (!modalForm.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(modalForm.email.trim())) {
+      errors.email = 'Valid corporate email is required';
+    }
+    if (!modalForm.phone.trim()) errors.phone = 'Phone number is required';
+    if (!modalForm.details.trim()) errors.details = 'Please tell us about your requirement';
+
+    if (Object.keys(errors).length > 0) {
+      setModalErrors(errors);
+      return;
+    }
+
+    setModalErrors({});
+    const url = buildWhatsAppEnquiryUrl(modalForm);
+    setModalSubmittedUrl(url);
+
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      // Browser popup blocker fallback - user can click the button on screen
+    }
+  };
+
+  const handlePageSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const errors: Record<string, string> = {};
+    if (!pageForm.name.trim()) errors.name = 'Name is required';
+    if (!pageForm.company.trim()) errors.company = 'Company / Business Name is required';
+    if (!pageForm.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pageForm.email.trim())) {
+      errors.email = 'Valid corporate email is required';
+    }
+    if (!pageForm.phone.trim()) errors.phone = 'Phone number is required';
+    if (!pageForm.details.trim()) errors.details = 'Please tell us about your requirement';
+
+    if (Object.keys(errors).length > 0) {
+      setPageErrors(errors);
+      return;
+    }
+
+    setPageErrors({});
+    const url = buildWhatsAppEnquiryUrl(pageForm);
+    setPageSubmittedUrl(url);
+
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      // Fallback
+    }
   };
 
   const handleNavClick = () => {
@@ -51,22 +177,24 @@ export default function App() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#070a12]/85 backdrop-blur-md border-b border-white/5 transition-all">
         <div className="h-20 max-w-[1360px] mx-auto px-margin-mobile md:px-margin flex items-center justify-between gap-space-md">
           {/* Exact Logo & Typography */}
-          <a className="flex items-center gap-3.5 shrink-0 group" href="#hero">
-            <div className="relative w-11 h-11 rounded-full p-[1.5px] bg-gradient-to-tr from-[#F2CA50] via-[#FFE088] to-[#F2CA50]/40 shadow-[0_0_15px_rgba(242,202,80,0.3)] transition-transform group-hover:scale-105">
+          <a className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 group" href="#hero" aria-label="BRAJ TECHNOLOGIES - Return to homepage">
+            <div className="relative w-9 h-9 sm:w-11 sm:h-11 shrink-0 rounded-full p-[1.5px] bg-gradient-to-tr from-[#F2CA50] via-[#FFE088] to-[#F2CA50]/40 shadow-[0_0_15px_rgba(242,202,80,0.3)] transition-transform group-hover:scale-105">
               <div className="w-full h-full rounded-full overflow-hidden bg-[#0a0e16] flex items-center justify-center">
                 <img
-                  alt="BRAJ TECHNOLOGIES Logo"
+                  alt="BRAJ TECHNOLOGIES Official Brand Seal - AI, Software & Automation"
                   className="h-full w-full object-cover"
                   src={LOGO_HEADER}
                   loading="eager"
+                  width="44"
+                  height="44"
                 />
               </div>
             </div>
-            <div className="flex flex-col">
-              <span className="font-headline-sm text-[19px] tracking-[0.14em] text-white font-extrabold uppercase leading-none">
-                BRAJ <span className="text-[#F2CA50] font-normal tracking-[0.2em] text-[15px] ml-1">TECHNOLOGIES</span>
+            <div className="flex flex-col min-w-0">
+              <span className="font-headline-sm text-[16px] min-[375px]:text-[18px] sm:text-[19px] tracking-[0.12em] sm:tracking-[0.14em] text-white font-extrabold uppercase leading-none truncate sm:overflow-visible">
+                BRAJ <span className="text-[#F2CA50] font-normal tracking-[0.14em] sm:tracking-[0.2em] text-[13px] min-[375px]:text-[14px] sm:text-[15px] ml-1">TECHNOLOGIES</span>
               </span>
-              <span className="font-label-caps text-[9px] text-[#A69E8D] tracking-[0.22em] uppercase mt-1">
+              <span className="font-label-caps text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] tracking-[0.05em] min-[360px]:tracking-[0.08em] min-[390px]:tracking-[0.12em] sm:tracking-[0.22em] text-[#A69E8D] uppercase mt-0.5 sm:mt-1 whitespace-nowrap overflow-hidden text-ellipsis sm:overflow-visible">
                 AI • SOFTWARE • AUTOMATION • BUSINESS GROWTH
               </span>
             </div>
@@ -89,16 +217,19 @@ export default function App() {
               <span className="w-1.5 h-1.5 rounded-full bg-[#7BD0FF] animate-pulse shadow-[0_0_8px_#7BD0FF]"></span>
               <span className="font-label-caps text-[10px] uppercase text-[#7BD0FF] tracking-widest">Global Deployments</span>
             </div>
-            <a
+            <button
+              type="button"
+              onClick={() => handleOpenEnquiryModal()}
               className="hidden sm:inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#F2CA50] via-[#FFE088] to-[#F2CA50] text-[#281E00] font-semibold text-xs tracking-wider uppercase hover:shadow-[0_0_24px_rgba(242,202,80,0.45)] transition-all cursor-pointer"
-              href="#contact-engagement"
             >
               BUILD WITH US →
-            </a>
+            </button>
             {/* Hamburger Button (Mobile / Tablet) */}
             <button
-              aria-label="Toggle Navigation"
-              className="xl:hidden p-2 rounded-lg bg-[#141A29] border border-white/10 text-white hover:text-[#F2CA50] transition-colors"
+              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-menu"
+              className="xl:hidden p-2 rounded-lg bg-[#141A29] border border-white/10 text-white hover:text-[#F2CA50] transition-colors cursor-pointer"
               onClick={() => setMobileMenuOpen(prev => !prev)}
               type="button"
             >
@@ -123,13 +254,16 @@ export default function App() {
             <a onClick={handleNavClick} className="text-base text-[#F2F4FA] hover:text-[#F2CA50] py-2 border-b border-white/5 transition-colors" href="#business-growth">Business Growth</a>
             <a onClick={handleNavClick} className="text-base text-[#F2F4FA] hover:text-[#F2CA50] py-2 border-b border-white/5 transition-colors" href="#philosophy">Vision</a>
             <a onClick={handleNavClick} className="text-base text-[#F2F4FA] hover:text-[#F2CA50] py-2 transition-colors" href="#contact-engagement">Contact</a>
-            <a
-              onClick={handleNavClick}
-              className="mt-2 w-full text-center py-3 rounded-lg bg-gradient-to-r from-[#F2CA50] via-[#FFE088] to-[#F2CA50] text-[#281E00] font-bold text-xs uppercase tracking-wider shadow-lg"
-              href="#contact-engagement"
+            <button
+              type="button"
+              onClick={() => {
+                handleNavClick();
+                handleOpenEnquiryModal();
+              }}
+              className="mt-2 w-full text-center py-3 rounded-lg bg-gradient-to-r from-[#F2CA50] via-[#FFE088] to-[#F2CA50] text-[#281E00] font-bold text-xs uppercase tracking-wider shadow-lg cursor-pointer"
             >
               BUILD WITH US →
-            </a>
+            </button>
           </div>
         )}
       </header>
@@ -137,13 +271,13 @@ export default function App() {
       <main className="w-full pt-20 bg-[#070A10] min-h-screen">
         <div className="flex flex-col w-full">
           {/* CINEMATIC HERO SECTION */}
-          <section className="relative w-full min-h-[92vh] flex flex-col justify-between overflow-hidden pt-12 md:pt-16 pb-12 cosmic-gradient" id="hero">
-            <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-              <div className="absolute top-1/4 left-1/3 w-[700px] h-[500px] bg-[#7BD0FF]/10 blur-[160px] rounded-full"></div>
-              <div className="absolute bottom-0 left-1/4 w-[900px] h-[400px] bg-gradient-to-t from-[#F2CA50]/20 via-[#F2CA50]/10 to-transparent blur-[140px] rounded-full"></div>
+          <section className="relative w-full min-h-[92vh] flex flex-col justify-between overflow-hidden pt-6 sm:pt-10 md:pt-16 pb-8 md:pb-12 cosmic-gradient scroll-mt-20" id="hero">
+            <div className="absolute inset-0 pointer-events-none select-none z-0 overflow-hidden">
+              <div className="absolute top-1/4 left-1/3 w-[340px] sm:w-[500px] md:w-[700px] h-[300px] md:h-[500px] max-w-full bg-[#7BD0FF]/10 blur-[120px] md:blur-[160px] rounded-full"></div>
+              <div className="absolute bottom-0 left-0 md:left-1/4 w-full md:w-[900px] h-[300px] md:h-[400px] bg-gradient-to-t from-[#F2CA50]/20 via-[#F2CA50]/10 to-transparent blur-[100px] md:blur-[140px] rounded-full"></div>
               
               {/* Starlight Points Layer */}
-              <svg className="absolute inset-0 w-full h-full opacity-60" xmlns="http://www.w3.org/2000/svg">
+              <svg className="absolute inset-0 w-full h-full opacity-60 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="12%" cy="18%" fill="#fff" opacity="0.8" r="1"></circle>
                 <circle cx="28%" cy="12%" fill="#7BD0FF" opacity="0.9" r="1.5"></circle>
                 <circle cx="42%" cy="22%" fill="#fff" opacity="0.5" r="1"></circle>
@@ -158,7 +292,13 @@ export default function App() {
               </svg>
 
               {/* Upward Sweeping Dynamic Light Beam / Fiber Optics Filament Mesh */}
-              <svg className="absolute inset-0 w-full h-full" fill="none" preserveAspectRatio="none" viewBox="0 0 1440 980" xmlns="http://www.w3.org/2000/svg">
+              <svg 
+                className="absolute inset-0 w-full h-full pointer-events-none select-none z-0 opacity-30 sm:opacity-50 md:opacity-100" 
+                fill="none" 
+                preserveAspectRatio="xMidYMid slice" 
+                viewBox="0 0 1440 980" 
+                xmlns="http://www.w3.org/2000/svg"
+              >
                 <defs>
                   <linearGradient id="fiberGlowAmberToCyan" x1="0%" x2="90%" y1="90%" y2="10%">
                     <stop offset="0%" stopColor="#F2CA50" stopOpacity="0.95"></stop>
@@ -213,9 +353,9 @@ export default function App() {
                 <line opacity="0.8" stroke="#FFFFFF" strokeWidth="0.8" x1="1170" x2="1200" y1="370" y2="330"></line>
                 <line opacity="0.7" stroke="#7BD0FF" strokeWidth="0.9" x1="1200" x2="1235" y1="330" y2="280"></line>
                 <line opacity="0.6" stroke="#FFE088" strokeWidth="0.8" x1="1235" x2="1260" y1="280" y2="220"></line>
-                {/* Heritage Base Platform & Colonnades (from Reference Poster) */}
+                {/* Heritage Base Platform & Colonnades (Seamless Width for Mobile & Desktop) */}
                 <g fill="#070A10" opacity="0.35">
-                  <rect height="250" width="700" x="0" y="730"></rect>
+                  <rect height="250" width="1440" x="0" y="730"></rect>
                   <path d="M 40 730 L 40 680 Q 75 640 110 680 L 110 730 Z"></path>
                   <path d="M 55 640 Q 75 600 95 640 Z"></path>
                   <rect height="12" width="4" x="73" y="590"></rect>
@@ -250,61 +390,65 @@ export default function App() {
                   <path d="M 550 730 L 550 715 Q 580 705 610 715 L 610 730 Z"></path>
                 </g>
               </svg>
-              <div className="absolute bottom-4 left-0 w-[55%] h-56 bg-gradient-to-t from-[#F2CA50]/30 via-[#F2CA50]/10 to-transparent blur-3xl pointer-events-none"></div>
+              {/* Seamless Ambient Glow Floor */}
+              <div className="absolute bottom-4 left-0 w-full md:w-[55%] h-56 bg-gradient-to-t from-[#F2CA50]/30 via-[#F2CA50]/10 to-transparent blur-3xl pointer-events-none"></div>
             </div>
 
             {/* Hero Content Layer */}
             <div className="relative z-10 max-w-[1360px] mx-auto px-margin-mobile md:px-margin w-full flex flex-col justify-between flex-grow">
-              <div className="flex flex-col items-start gap-4 pt-2 md:pt-6">
+              <div className="flex flex-col items-start gap-3 sm:gap-4 pt-2 sm:pt-4 md:pt-6">
                 {/* Exact Metallic Brand Seal */}
-                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full p-[2px] bg-gradient-to-b from-[#FFE088] via-[#D4AF37] to-[#806B22] shadow-[0_0_30px_rgba(242,202,80,0.35)] transition-transform hover:scale-105">
+                <div className="w-14 h-14 min-[375px]:w-16 min-[375px]:h-16 md:w-20 md:h-20 rounded-full p-[2px] bg-gradient-to-b from-[#FFE088] via-[#D4AF37] to-[#806B22] shadow-[0_0_30px_rgba(242,202,80,0.35)] transition-transform hover:scale-105 shrink-0">
                   <div className="w-full h-full rounded-full overflow-hidden bg-[#0A0D14] flex items-center justify-center p-0.5">
                     <img
-                      alt="Braj Technologies Crest"
+                      alt="BRAJ TECHNOLOGIES Sovereign Brand Crest - AI, Software and Automation"
                       className="w-full h-full object-cover"
                       src={HERO_CREST}
+                      width="80"
+                      height="80"
                     />
                   </div>
                 </div>
 
                 {/* "I N T R O D U C I N G" Tracking Label */}
-                <div className="pt-2">
-                  <span className="font-label-caps text-xs md:text-sm tracking-[0.45em] text-[#CFC8B8] uppercase font-semibold">
+                <div className="pt-1 sm:pt-2">
+                  <span className="font-label-caps text-[10px] min-[375px]:text-xs md:text-sm tracking-[0.35em] sm:tracking-[0.45em] text-[#CFC8B8] uppercase font-semibold">
                     I N T R O D U C I N G
                   </span>
                 </div>
 
-                {/* Display Title */}
-                <div className="flex flex-col -mt-1">
-                  <h1 className="font-headline-2xl text-[68px] sm:text-[90px] md:text-[116px] lg:text-[132px] leading-none tracking-tight font-black text-white drop-shadow-[0_4px_25px_rgba(0,0,0,0.8)]">
+                {/* Display Title - One Semantic H1 */}
+                <h1 className="flex flex-col -mt-1">
+                  <span className="font-headline-2xl text-[48px] min-[360px]:text-[56px] min-[390px]:text-[64px] sm:text-[90px] md:text-[116px] lg:text-[132px] leading-none tracking-tight font-black text-white drop-shadow-[0_4px_25px_rgba(0,0,0,0.8)]">
                     BRAJ
-                  </h1>
-                  <span className="font-headline-md sm:font-headline-lg md:text-[42px] lg:text-[48px] tracking-[0.38em] md:tracking-[0.45em] text-[#E0D8C3] uppercase font-light -mt-1 md:-mt-3">
+                  </span>
+                  <span className="font-headline-md sm:font-headline-lg text-[18px] min-[360px]:text-[22px] min-[390px]:text-[26px] sm:text-[34px] md:text-[42px] lg:text-[48px] tracking-[0.2em] min-[360px]:tracking-[0.26em] sm:tracking-[0.38em] md:tracking-[0.45em] text-[#E0D8C3] uppercase font-light -mt-0.5 sm:-mt-1 md:-mt-3">
                     TECHNOLOGIES
                   </span>
-                </div>
+                </h1>
 
                 {/* Subtitle & Value Statement */}
-                <div className="max-w-2xl mt-2 md:mt-4">
-                  <p className="text-xl md:text-2xl text-white font-normal tracking-wide leading-snug">
+                <div className="max-w-2xl mt-1 sm:mt-2 md:mt-4">
+                  <p className="text-lg min-[375px]:text-xl md:text-2xl text-white font-normal tracking-wide leading-snug drop-shadow-[0_2px_10px_rgba(7,10,16,0.8)]">
                     Building technology that moves businesses forward.
                   </p>
-                  <p className="text-sm md:text-base text-[#B8B3A4] font-normal mt-2 leading-relaxed max-w-xl">
+                  <p className="text-xs min-[375px]:text-sm md:text-base text-[#B8B3A4] font-normal mt-2 leading-relaxed max-w-xl drop-shadow-[0_2px_8px_rgba(7,10,16,0.8)]">
                     AI, software, automation and digital systems designed around real business needs. Scalable technological foundations that eliminate operational bottlenecks and compound enterprise valuation.
                   </p>
                 </div>
 
                 {/* Action CTAs */}
-                <div className="flex flex-wrap items-center gap-4 mt-6">
-                  <a
-                    className="inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-[#F2CA50] via-[#FFE088] to-[#F2CA50] text-[#281E00] font-bold text-sm tracking-wider uppercase shadow-[0_0_30px_rgba(242,202,80,0.35)] hover:shadow-[0_0_45px_rgba(242,202,80,0.55)] transition-all"
-                    href="#contact-engagement"
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-4 sm:mt-6 w-full sm:w-auto relative z-20">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEnquiryModal()}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl bg-gradient-to-r from-[#F2CA50] via-[#FFE088] to-[#F2CA50] text-[#281E00] font-bold text-xs sm:text-sm tracking-wider uppercase shadow-[0_0_30px_rgba(242,202,80,0.35)] hover:shadow-[0_0_45px_rgba(242,202,80,0.55)] transition-all cursor-pointer"
                   >
                     <span>BUILD WITH US</span>
                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                  </a>
+                  </button>
                   <a
-                    className="inline-flex items-center justify-center gap-2.5 px-7 py-4 rounded-xl bg-[#1B2234]/80 hover:bg-[#242C42] border border-white/10 text-white text-sm font-semibold tracking-wide backdrop-blur-md transition-all"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 sm:px-7 py-3.5 sm:py-4 rounded-xl bg-[#1B2234]/80 hover:bg-[#242C42] border border-white/10 text-white text-xs sm:text-sm font-semibold tracking-wide backdrop-blur-md transition-all text-center"
                     href="#what-we-build"
                   >
                     <span>Explore Capabilities</span>
@@ -314,17 +458,19 @@ export default function App() {
               </div>
 
               {/* Lower Banner / Ticker */}
-              <div className="pt-16 pb-4 flex flex-col md:flex-row md:items-end justify-between gap-6 border-t border-white/10 mt-12">
-                <div className="flex items-center gap-3 text-xs md:text-sm font-medium tracking-[0.25em] text-[#C9C2AF] uppercase">
-                  <span>AI</span>
-                  <span className="text-[#F2CA50]">•</span>
-                  <span>SOFTWARE</span>
-                  <span className="text-[#F2CA50]">•</span>
-                  <span>AUTOMATION</span>
-                  <span className="text-[#F2CA50]">•</span>
-                  <span>BUSINESS GROWTH</span>
+              <div className="w-full overflow-hidden pt-8 sm:pt-12 md:pt-16 pb-4 flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 border-t border-white/10 mt-8 md:mt-12">
+                <div className="w-full md:w-auto overflow-x-auto no-scrollbar py-1">
+                  <div className="flex items-center gap-2.5 sm:gap-3 text-[10px] min-[360px]:text-xs md:text-sm font-medium tracking-[0.14em] min-[360px]:tracking-[0.18em] sm:tracking-[0.25em] text-[#C9C2AF] uppercase whitespace-nowrap">
+                    <span className="shrink-0 whitespace-nowrap">AI</span>
+                    <span className="text-[#F2CA50] shrink-0">•</span>
+                    <span className="shrink-0 whitespace-nowrap">SOFTWARE</span>
+                    <span className="text-[#F2CA50] shrink-0">•</span>
+                    <span className="shrink-0 whitespace-nowrap">AUTOMATION</span>
+                    <span className="text-[#F2CA50] shrink-0">•</span>
+                    <span className="shrink-0 whitespace-nowrap">BUSINESS GROWTH</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-6">
+                <div className="flex items-center justify-between sm:justify-end gap-6">
                   <div className="hidden sm:flex items-center gap-4 text-xs font-mono text-[#857D6D]">
                     <span className="flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-[#7BD0FF]"></span> 99.98% RESILIENCE
@@ -335,7 +481,7 @@ export default function App() {
                     <span>$140M+ VALUATION CREATED</span>
                   </div>
                   <a
-                    className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center text-[#F2CA50] hover:border-[#F2CA50] hover:scale-110 transition-all"
+                    className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center text-[#F2CA50] hover:border-[#F2CA50] hover:scale-110 transition-all shrink-0 ml-auto md:ml-0"
                     href="#what-we-build"
                     aria-label="Scroll to What We Build"
                   >
@@ -1071,13 +1217,14 @@ export default function App() {
                   Let’s build the technology to solve it.
                 </p>
               </div>
-              <a
+              <button
+                type="button"
+                onClick={() => handleOpenEnquiryModal()}
                 className="shrink-0 inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-[#F2CA50] via-[#FFE088] to-[#F2CA50] text-[#281E00] font-bold text-sm tracking-wider uppercase shadow-[0_0_25px_rgba(242,202,80,0.35)] hover:shadow-[0_0_35px_rgba(242,202,80,0.55)] transition-all cursor-pointer"
-                href="#contact-engagement"
               >
                 <span>BUILD WITH US</span>
                 <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-              </a>
+              </button>
             </div>
           </section>
 
@@ -1107,20 +1254,57 @@ export default function App() {
                         <span className="w-1.5 h-1.5 rounded-full bg-[#7BD0FF] animate-pulse"></span> SLA &lt; 12 HOURS
                       </span>
                     </div>
+
                     <div className="flex items-center gap-space-md">
-                      <span className="material-symbols-outlined text-[#F2CA50] text-[24px]">vpn_key</span>
+                      <span className="material-symbols-outlined text-[#F2CA50] text-[24px]">mail</span>
                       <div className="flex flex-col">
-                        <span className="font-body-sm text-white font-semibold">Encrypted Engineering Channel</span>
-                        <a href="mailto:principal@brajtechnologies.com" className="font-body-sm text-[#857D6D] hover:text-[#F2CA50] transition-colors">
-                          principal@brajtechnologies.com
+                        <span className="font-body-sm text-white font-semibold">Official Email</span>
+                        <a
+                          href="mailto:technologiesbraj@gmail.com"
+                          className="font-body-sm text-[#F2CA50] hover:text-[#FFE088] hover:underline transition-colors break-all"
+                        >
+                          technologiesbraj@gmail.com
                         </a>
                       </div>
                     </div>
+
                     <div className="flex items-center gap-space-md">
-                      <span className="material-symbols-outlined text-[#7BD0FF] text-[24px]">domain</span>
+                      <span className="material-symbols-outlined text-[#F2CA50] text-[24px]">chat</span>
                       <div className="flex flex-col">
-                        <span className="font-body-sm text-white font-semibold">Global Executive Liaison</span>
-                        <span className="font-body-sm text-[#857D6D]">+1 (888) 920-BRAJ // Direct Tier 1</span>
+                        <span className="font-body-sm text-white font-semibold">Official WhatsApp Line</span>
+                        <a
+                          href={WHATSAPP_ENQUIRY_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-body-sm text-[#F2CA50] hover:underline inline-flex items-center gap-1 transition-colors"
+                        >
+                          <span>Direct WhatsApp Enquiry</span>
+                          <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                        </a>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-space-md">
+                      <span className="material-symbols-outlined text-[#F2CA50] text-[24px]">location_on</span>
+                      <div className="flex flex-col">
+                        <span className="font-body-sm text-white font-semibold">Headquarters</span>
+                        <span className="font-body-sm text-[#857D6D]">Jabalpur, Madhya Pradesh, India</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-space-md">
+                      <span className="material-symbols-outlined text-[#7BD0FF] text-[24px]">photo_camera</span>
+                      <div className="flex flex-col">
+                        <span className="font-body-sm text-white font-semibold">Official Instagram</span>
+                        <a
+                          href="https://www.instagram.com/brajtechnologies"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-body-sm text-[#7BD0FF] hover:underline inline-flex items-center gap-1 transition-colors"
+                        >
+                          <span>@brajtechnologies</span>
+                          <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                        </a>
                       </div>
                     </div>
                   </div>
@@ -1130,90 +1314,195 @@ export default function App() {
                 <div className="lg:col-span-7 rounded-2xl bg-[#0F1420] border border-white/10 p-space-xl shadow-2xl flex flex-col gap-space-lg">
                   <div className="flex flex-col gap-space-xs">
                     <span className="font-title-lg text-white font-semibold">Architectural Discovery Brief</span>
-                    <p className="font-body-sm text-[#B8B3A4]">Select target operational focus and transmit scope details.</p>
+                    <p className="font-body-sm text-[#B8B3A4]">Complete the brief below to transmit your requirement directly to our team via WhatsApp.</p>
                   </div>
 
-                  {/* Focus Selector (Pills) */}
-                  <div className="flex flex-col gap-space-xs">
-                    <label className="font-label-caps text-[#857D6D] uppercase">Primary Operational Focus</label>
-                    <div className="flex flex-wrap gap-2" id="scope-selector">
-                      {FOCUS_PILLS.map((pill) => {
-                        const isSelected = selectedFocus === pill;
-                        return (
-                          <button
-                            key={pill}
-                            onClick={() => setSelectedFocus(pill)}
-                            className={`scope-btn px-4 py-2 rounded-lg font-semibold text-xs tracking-wider uppercase transition-all ${
-                              isSelected
-                                ? 'bg-[#F2CA50] text-[#281E00] shadow-[0_0_15px_rgba(242,202,80,0.3)]'
-                                : 'bg-[#1B2234] text-[#F2F4FA] border border-white/5 hover:border-[#F2CA50]/40'
-                            }`}
-                            type="button"
-                          >
-                            {pill}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Direct Input Fields */}
-                  <form className="flex flex-col gap-space-md" onSubmit={handleSubmit}>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+                  {pageSubmittedUrl ? (
+                    <div className="p-6 rounded-xl bg-[#141A29] border border-[#7BD0FF]/40 text-center flex flex-col items-center gap-4 animate-fadeIn">
+                      <div className="w-12 h-12 rounded-full bg-[#7BD0FF]/10 border border-[#7BD0FF]/30 flex items-center justify-center text-[#7BD0FF]">
+                        <span className="material-symbols-outlined text-[28px]">check_circle</span>
+                      </div>
                       <div className="flex flex-col gap-1">
-                        <label className="font-label-caps text-[#857D6D] uppercase">Executive Name</label>
+                        <h4 className="text-white font-title-md font-semibold">Enquiry Form Compiled</h4>
+                        <p className="text-sm text-[#B8B3A4] max-w-md">
+                          Your requirement details for <strong>{pageForm.company}</strong> ({pageForm.service}) have been prepared. Click below to initiate your WhatsApp conversation with our principal team.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
+                        <a
+                          href={pageSubmittedUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#F2CA50] via-[#FFE088] to-[#F2CA50] text-[#281E00] font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(242,202,80,0.35)] hover:shadow-[0_0_30px_rgba(242,202,80,0.55)] transition-all cursor-pointer"
+                        >
+                          <span>CONTINUE TO WHATSAPP →</span>
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPageSubmittedUrl(null);
+                            setPageForm({
+                              name: '',
+                              company: '',
+                              email: '',
+                              phone: '',
+                              service: 'AI Solutions',
+                              details: '',
+                              budgetTimeline: ''
+                            });
+                          }}
+                          className="px-5 py-3.5 rounded-xl bg-[#1B2234] hover:bg-[#242C42] border border-white/10 text-white text-xs font-semibold tracking-wider uppercase transition-all cursor-pointer"
+                        >
+                          Reset Form
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <form className="flex flex-col gap-space-md" onSubmit={handlePageSubmit}>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+                        <div className="flex flex-col gap-1">
+                          <label className="font-label-caps text-[#857D6D] uppercase flex items-center justify-between">
+                            <span>Name <span className="text-[#F2CA50]">*</span></span>
+                          </label>
+                          <input
+                            className={`w-full bg-[#05070B] border ${pageErrors.name ? 'border-[#FFB4AB]' : 'border-white/10'} px-4 py-3 rounded-lg font-body-sm text-white placeholder:text-[#857D6D] focus:outline-none focus:border-[#F2CA50] transition-colors`}
+                            placeholder="e.g. Vikramaditya Sharma"
+                            value={pageForm.name}
+                            onChange={(e) => {
+                              setPageForm(prev => ({ ...prev, name: e.target.value }));
+                              if (pageErrors.name) setPageErrors(prev => ({ ...prev, name: '' }));
+                            }}
+                            type="text"
+                          />
+                          {pageErrors.name && <span className="text-xs text-[#FFB4AB] mt-0.5">{pageErrors.name}</span>}
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <label className="font-label-caps text-[#857D6D] uppercase flex items-center justify-between">
+                            <span>Company / Business Name <span className="text-[#F2CA50]">*</span></span>
+                          </label>
+                          <input
+                            className={`w-full bg-[#05070B] border ${pageErrors.company ? 'border-[#FFB4AB]' : 'border-white/10'} px-4 py-3 rounded-lg font-body-sm text-white placeholder:text-[#857D6D] focus:outline-none focus:border-[#F2CA50] transition-colors`}
+                            placeholder="e.g. Acme Global Enterprises"
+                            value={pageForm.company}
+                            onChange={(e) => {
+                              setPageForm(prev => ({ ...prev, company: e.target.value }));
+                              if (pageErrors.company) setPageErrors(prev => ({ ...prev, company: '' }));
+                            }}
+                            type="text"
+                          />
+                          {pageErrors.company && <span className="text-xs text-[#FFB4AB] mt-0.5">{pageErrors.company}</span>}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+                        <div className="flex flex-col gap-1">
+                          <label className="font-label-caps text-[#857D6D] uppercase flex items-center justify-between">
+                            <span>Email <span className="text-[#F2CA50]">*</span></span>
+                          </label>
+                          <input
+                            className={`w-full bg-[#05070B] border ${pageErrors.email ? 'border-[#FFB4AB]' : 'border-white/10'} px-4 py-3 rounded-lg font-body-sm text-white placeholder:text-[#857D6D] focus:outline-none focus:border-[#F2CA50] transition-colors`}
+                            placeholder="name@company.com"
+                            value={pageForm.email}
+                            onChange={(e) => {
+                              setPageForm(prev => ({ ...prev, email: e.target.value }));
+                              if (pageErrors.email) setPageErrors(prev => ({ ...prev, email: '' }));
+                            }}
+                            type="email"
+                          />
+                          {pageErrors.email && <span className="text-xs text-[#FFB4AB] mt-0.5">{pageErrors.email}</span>}
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <label className="font-label-caps text-[#857D6D] uppercase flex items-center justify-between">
+                            <span>Phone Number <span className="text-[#F2CA50]">*</span></span>
+                          </label>
+                          <input
+                            className={`w-full bg-[#05070B] border ${pageErrors.phone ? 'border-[#FFB4AB]' : 'border-white/10'} px-4 py-3 rounded-lg font-body-sm text-white placeholder:text-[#857D6D] focus:outline-none focus:border-[#F2CA50] transition-colors`}
+                            placeholder="e.g. +91 98765 43210"
+                            value={pageForm.phone}
+                            onChange={(e) => {
+                              setPageForm(prev => ({ ...prev, phone: e.target.value }));
+                              if (pageErrors.phone) setPageErrors(prev => ({ ...prev, phone: '' }));
+                            }}
+                            type="tel"
+                          />
+                          {pageErrors.phone && <span className="text-xs text-[#FFB4AB] mt-0.5">{pageErrors.phone}</span>}
+                        </div>
+                      </div>
+
+                      {/* What do you need help with? */}
+                      <div className="flex flex-col gap-2">
+                        <label className="font-label-caps text-[#857D6D] uppercase">
+                          What do you need help with? <span className="text-[#F2CA50]">*</span>
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {SERVICE_OPTIONS.map((service) => {
+                            const isSelected = pageForm.service === service;
+                            return (
+                              <button
+                                key={service}
+                                type="button"
+                                onClick={() => setPageForm(prev => ({ ...prev, service }))}
+                                className={`px-3.5 py-2 rounded-lg font-semibold text-xs tracking-wider uppercase transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-[#F2CA50] text-[#281E00] shadow-[0_0_12px_rgba(242,202,80,0.35)]'
+                                    : 'bg-[#141A29] text-[#F2F4FA] border border-white/5 hover:border-[#F2CA50]/40'
+                                }`}
+                              >
+                                {service}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Tell us about your requirement */}
+                      <div className="flex flex-col gap-1">
+                        <label className="font-label-caps text-[#857D6D] uppercase flex items-center justify-between">
+                          <span>Tell us about your requirement <span className="text-[#F2CA50]">*</span></span>
+                        </label>
+                        <textarea
+                          className={`w-full bg-[#05070B] border ${pageErrors.details ? 'border-[#FFB4AB]' : 'border-white/10'} px-4 py-3 rounded-lg font-body-sm text-white placeholder:text-[#857D6D] focus:outline-none focus:border-[#F2CA50] resize-none transition-colors`}
+                          placeholder="Describe the problem, operational bottlenecks, expected features, or specific deliverables..."
+                          rows={4}
+                          value={pageForm.details}
+                          onChange={(e) => {
+                            setPageForm(prev => ({ ...prev, details: e.target.value }));
+                            if (pageErrors.details) setPageErrors(prev => ({ ...prev, details: '' }));
+                          }}
+                        ></textarea>
+                        {pageErrors.details && <span className="text-xs text-[#FFB4AB] mt-0.5">{pageErrors.details}</span>}
+                      </div>
+
+                      {/* Budget / Timeline */}
+                      <div className="flex flex-col gap-1">
+                        <label className="font-label-caps text-[#857D6D] uppercase flex items-center justify-between">
+                          <span>Budget / Timeline <span className="text-xs text-[#857D6D] lowercase font-normal">(optional)</span></span>
+                        </label>
                         <input
-                          className="w-full bg-[#05070B] border border-white/5 px-4 py-3 rounded-lg font-body-sm text-white placeholder:text-[#857D6D] focus:outline-none focus:border-[#F2CA50] transition-colors"
-                          placeholder="e.g. Vikramaditya Sharma"
-                          required
-                          value={formData.name}
-                          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                          className="w-full bg-[#05070B] border border-white/10 px-4 py-3 rounded-lg font-body-sm text-white placeholder:text-[#857D6D] focus:outline-none focus:border-[#F2CA50] transition-colors"
+                          placeholder="e.g. $10k - $25k, Launch within 6-8 weeks"
+                          value={pageForm.budgetTimeline}
+                          onChange={(e) => setPageForm(prev => ({ ...prev, budgetTimeline: e.target.value }))}
                           type="text"
                         />
                       </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="font-label-caps text-[#857D6D] uppercase">Corporate Email</label>
-                        <input
-                          className="w-full bg-[#05070B] border border-white/5 px-4 py-3 rounded-lg font-body-sm text-white placeholder:text-[#857D6D] focus:outline-none focus:border-[#F2CA50] transition-colors"
-                          placeholder="name@enterprise.com"
-                          required
-                          value={formData.email}
-                          onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                          type="email"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="font-label-caps text-[#857D6D] uppercase">Technical Scope &amp; Target Valuation Objective</label>
-                      <textarea
-                        className="w-full bg-[#05070B] border border-white/5 px-4 py-3 rounded-lg font-body-sm text-white placeholder:text-[#857D6D] focus:outline-none focus:border-[#F2CA50] resize-none transition-colors"
-                        placeholder="Describe current operational bottlenecks, data volume, and primary KPIs to unlock..."
-                        required
-                        value={formData.scope}
-                        onChange={(e) => setFormData(prev => ({ ...prev, scope: e.target.value }))}
-                        rows={4}
-                      ></textarea>
-                    </div>
 
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-space-md pt-space-xs">
-                      <div className="flex items-center gap-2 text-[#857D6D] font-label-caps uppercase">
-                        <span className="material-symbols-outlined text-[#F2CA50] text-[18px]">verified_user</span>
-                        <span>Protected by Bilateral NDA</span>
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-space-md pt-space-xs">
+                        <div className="flex items-center gap-2 text-[#857D6D] font-label-caps uppercase text-xs">
+                          <span className="material-symbols-outlined text-[#F2CA50] text-[18px]">verified_user</span>
+                          <span>Bilateral NDA Protected</span>
+                        </div>
+                        <button
+                          className="w-full sm:w-auto inline-flex items-center justify-center gap-space-sm px-8 py-4 rounded-xl bg-gradient-to-r from-[#F2CA50] via-[#FFE088] to-[#F2CA50] text-[#281E00] font-bold text-xs tracking-wider uppercase hover:shadow-[0_0_25px_rgba(242,202,80,0.45)] transition-all cursor-pointer"
+                          type="submit"
+                        >
+                          <span>SEND ENQUIRY →</span>
+                        </button>
                       </div>
-                      <button
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-space-sm px-space-xl py-3.5 rounded-lg bg-gradient-to-r from-[#F2CA50] via-[#FFE088] to-[#F2CA50] text-[#281E00] font-bold text-xs tracking-wider uppercase hover:shadow-[0_0_25px_rgba(242,202,80,0.45)] transition-all cursor-pointer"
-                        type="submit"
-                      >
-                        <span>INITIATE ARCHITECTURAL CONSULTATION →</span>
-                      </button>
-                    </div>
-
-                    {formSubmitted && (
-                      <div className="p-4 rounded-lg bg-[#242C42] border border-[#7BD0FF]/40 text-[#7BD0FF] font-body-sm text-center animate-fadeIn">
-                        ✓ Discovery parameters for <strong>{selectedFocus}</strong> received. Principal engineer assigned within &lt; 12 hours. Confirmation dispatch queued to {formData.email}.
-                      </div>
-                    )}
-                  </form>
+                    </form>
+                  )}
                 </div>
               </div>
             </div>
@@ -1231,9 +1520,13 @@ export default function App() {
                 <div className="relative w-10 h-10 rounded-full p-[1.5px] bg-gradient-to-tr from-[#F2CA50] via-[#FFE088] to-[#F2CA50]/40 shadow-[0_0_15px_rgba(242,202,80,0.25)]">
                   <div className="w-full h-full rounded-full overflow-hidden bg-[#0A0D14] flex items-center justify-center">
                     <img
-                      alt="BRAJ TECHNOLOGIES Logo"
+                      alt="BRAJ TECHNOLOGIES Official Brand Seal - Jabalpur, India"
                       className="h-full w-full object-cover"
                       src={LOGO_FOOTER}
+                      width="40"
+                      height="40"
+                      loading="lazy"
+                      decoding="async"
                     />
                   </div>
                 </div>
@@ -1244,7 +1537,45 @@ export default function App() {
               <p className="font-body-sm text-[#B8B3A4] max-w-sm">
                 Sovereign enterprise technology, hyper-scale AI automation, and mission-critical software architectures engineered for global market leadership.
               </p>
-              <div className="flex flex-wrap items-center gap-2 mt-2">
+
+              {/* Official Contact Badges in Footer */}
+              <div className="flex flex-col gap-2 pt-2 border-t border-white/5 text-xs text-[#B8B3A4]">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#F2CA50] text-[16px]">location_on</span>
+                  <span>Jabalpur, Madhya Pradesh, India</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#7BD0FF] text-[16px]">mail</span>
+                  <a href="mailto:technologiesbraj@gmail.com" className="hover:text-[#F2CA50] transition-colors break-all">
+                    technologiesbraj@gmail.com
+                  </a>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#F2CA50] text-[16px]">chat</span>
+                  <a
+                    href={WHATSAPP_ENQUIRY_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-white transition-colors"
+                  >
+                    WhatsApp Business Channel
+                  </a>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#7BD0FF] text-[16px]">photo_camera</span>
+                  <a
+                    href="https://www.instagram.com/brajtechnologies"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#7BD0FF] hover:underline inline-flex items-center gap-1 transition-colors"
+                  >
+                    <span>@brajtechnologies</span>
+                    <span className="material-symbols-outlined text-[12px]">open_in_new</span>
+                  </a>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 mt-1">
                 <span className="px-2.5 py-1 rounded bg-[#141A29] border border-white/5 text-[#B8B3A4] font-label-caps text-[10px] uppercase">SOC2 Type II</span>
                 <span className="px-2.5 py-1 rounded bg-[#141A29] border border-white/5 text-[#B8B3A4] font-label-caps text-[10px] uppercase">ISO 27001</span>
                 <span className="px-2.5 py-1 rounded bg-[#141A29] border border-white/5 text-[#B8B3A4] font-label-caps text-[10px] uppercase">Tier 4 Sovereign</span>
@@ -1278,13 +1609,41 @@ export default function App() {
               <a className="font-body-sm text-[#B8B3A4] hover:text-white transition-colors" href="#business-growth">SEO &amp; AEO Architecture</a>
             </div>
 
-            {/* Company Links */}
+            {/* Direct Contact Column */}
             <div className="flex flex-col gap-space-sm">
-              <span className="font-label-caps uppercase text-[#F2CA50] tracking-widest">Company</span>
-              <a className="font-body-sm text-[#B8B3A4] hover:text-white transition-colors" href="#philosophy">Our Vision</a>
-              <a className="font-body-sm text-[#B8B3A4] hover:text-white transition-colors" href="#philosophy">Leadership</a>
-              <a className="font-body-sm text-[#B8B3A4] hover:text-white transition-colors" href="#contact-engagement">Global Offices</a>
-              <a className="font-body-sm text-[#B8B3A4] hover:text-white transition-colors" href="#contact-engagement">Client Advisory</a>
+              <span className="font-label-caps uppercase text-[#F2CA50] tracking-widest">Contact</span>
+              <a
+                className="font-body-sm text-[#B8B3A4] hover:text-[#F2CA50] transition-colors break-all flex items-center gap-1.5"
+                href="mailto:technologiesbraj@gmail.com"
+              >
+                <span className="material-symbols-outlined text-[15px] text-[#F2CA50]">mail</span>
+                <span>technologiesbraj@gmail.com</span>
+              </a>
+              <a
+                className="font-body-sm text-[#F2CA50] hover:underline transition-colors flex items-center gap-1.5"
+                href={WHATSAPP_ENQUIRY_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="material-symbols-outlined text-[15px]">chat</span>
+                <span>WhatsApp Business Enquiry</span>
+              </a>
+              <a
+                className="font-body-sm text-[#7BD0FF] hover:underline transition-colors flex items-center gap-1.5"
+                href="https://www.instagram.com/brajtechnologies"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="material-symbols-outlined text-[15px]">photo_camera</span>
+                <span>@brajtechnologies</span>
+              </a>
+              <span className="font-body-sm text-[#857D6D] flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[15px] text-[#F2CA50]">location_on</span>
+                <span>Jabalpur, MP, India</span>
+              </span>
+              <a className="font-body-sm text-[#857D6D] hover:text-white transition-colors mt-2" href="#philosophy">
+                Our Vision &amp; Creed
+              </a>
             </div>
           </div>
 
@@ -1301,6 +1660,237 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Premium Enquiry Modal */}
+      {enquiryModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-[#05070B]/85 backdrop-blur-md overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setEnquiryModalOpen(false);
+            }
+          }}
+        >
+          <div className="relative w-full max-w-2xl bg-[#0C101A] border border-white/10 rounded-2xl shadow-[0_0_60px_rgba(0,0,0,0.9)] p-6 sm:p-8 my-auto overflow-hidden">
+            {/* Top ambient gold glow */}
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#F2CA50]/15 rounded-full blur-[90px] pointer-events-none"></div>
+
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-4 pb-4 border-b border-white/5 relative z-10">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#F2CA50] shadow-[0_0_8px_#F2CA50]"></span>
+                  <span className="font-label-caps text-xs text-[#F2CA50] uppercase tracking-widest font-semibold">
+                    EXECUTIVE BRIEFING PROTOCOL
+                  </span>
+                </div>
+                <h3 className="font-headline-sm text-2xl text-white font-bold tracking-tight mt-1">
+                  Build With Braj Technologies
+                </h3>
+                <p className="font-body-sm text-[#B8B3A4] text-xs sm:text-sm">
+                  Provide your technical requirements below to initiate direct consultation via WhatsApp.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEnquiryModalOpen(false)}
+                className="w-9 h-9 rounded-full bg-[#1B2234] border border-white/10 flex items-center justify-center text-[#B8B3A4] hover:text-white hover:border-[#F2CA50]/50 transition-all shrink-0 cursor-pointer"
+                aria-label="Close modal"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="mt-5 relative z-10">
+              {modalSubmittedUrl ? (
+                <div className="py-8 px-4 text-center flex flex-col items-center gap-4 animate-fadeIn">
+                  <div className="w-16 h-16 rounded-full bg-[#7BD0FF]/10 border border-[#7BD0FF]/30 flex items-center justify-center text-[#7BD0FF]">
+                    <span className="material-symbols-outlined text-[36px]">check_circle</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5 max-w-md">
+                    <h4 className="text-white font-headline-sm text-xl font-bold">Enquiry Prepared</h4>
+                    <p className="text-sm text-[#B8B3A4] leading-relaxed">
+                      Your technical brief for <strong>{modalForm.company}</strong> has been structured. WhatsApp is opening. If it didn't launch automatically, click below:
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-3 mt-4 w-full justify-center">
+                    <a
+                      href={modalSubmittedUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-[#F2CA50] via-[#FFE088] to-[#F2CA50] text-[#281E00] font-bold text-xs uppercase tracking-wider shadow-[0_0_25px_rgba(242,202,80,0.4)] hover:shadow-[0_0_35px_rgba(242,202,80,0.6)] transition-all cursor-pointer"
+                    >
+                      <span>OPEN WHATSAPP NOW →</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModalSubmittedUrl(null);
+                        setEnquiryModalOpen(false);
+                      }}
+                      className="w-full sm:w-auto px-6 py-4 rounded-xl bg-[#1B2234] hover:bg-[#242C42] border border-white/10 text-white text-xs font-semibold tracking-wider uppercase transition-all cursor-pointer"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form className="flex flex-col gap-4" onSubmit={handleModalSubmit}>
+                  {/* Name and Company */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1">
+                      <label className="font-label-caps text-[#857D6D] uppercase flex items-center justify-between text-xs">
+                        <span>Name <span className="text-[#F2CA50]">*</span></span>
+                      </label>
+                      <input
+                        className={`w-full bg-[#05070B] border ${modalErrors.name ? 'border-[#FFB4AB]' : 'border-white/10'} px-3.5 py-2.5 rounded-lg font-body-sm text-sm text-white placeholder:text-[#857D6D] focus:outline-none focus:border-[#F2CA50] transition-colors`}
+                        placeholder="e.g. Vikramaditya Sharma"
+                        value={modalForm.name}
+                        onChange={(e) => {
+                          setModalForm(prev => ({ ...prev, name: e.target.value }));
+                          if (modalErrors.name) setModalErrors(prev => ({ ...prev, name: '' }));
+                        }}
+                        type="text"
+                      />
+                      {modalErrors.name && <span className="text-xs text-[#FFB4AB] mt-0.5">{modalErrors.name}</span>}
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="font-label-caps text-[#857D6D] uppercase flex items-center justify-between text-xs">
+                        <span>Company / Business Name <span className="text-[#F2CA50]">*</span></span>
+                      </label>
+                      <input
+                        className={`w-full bg-[#05070B] border ${modalErrors.company ? 'border-[#FFB4AB]' : 'border-white/10'} px-3.5 py-2.5 rounded-lg font-body-sm text-sm text-white placeholder:text-[#857D6D] focus:outline-none focus:border-[#F2CA50] transition-colors`}
+                        placeholder="e.g. Acme Corporation"
+                        value={modalForm.company}
+                        onChange={(e) => {
+                          setModalForm(prev => ({ ...prev, company: e.target.value }));
+                          if (modalErrors.company) setModalErrors(prev => ({ ...prev, company: '' }));
+                        }}
+                        type="text"
+                      />
+                      {modalErrors.company && <span className="text-xs text-[#FFB4AB] mt-0.5">{modalErrors.company}</span>}
+                    </div>
+                  </div>
+
+                  {/* Email and Phone */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1">
+                      <label className="font-label-caps text-[#857D6D] uppercase flex items-center justify-between text-xs">
+                        <span>Email <span className="text-[#F2CA50]">*</span></span>
+                      </label>
+                      <input
+                        className={`w-full bg-[#05070B] border ${modalErrors.email ? 'border-[#FFB4AB]' : 'border-white/10'} px-3.5 py-2.5 rounded-lg font-body-sm text-sm text-white placeholder:text-[#857D6D] focus:outline-none focus:border-[#F2CA50] transition-colors`}
+                        placeholder="name@company.com"
+                        value={modalForm.email}
+                        onChange={(e) => {
+                          setModalForm(prev => ({ ...prev, email: e.target.value }));
+                          if (modalErrors.email) setModalErrors(prev => ({ ...prev, email: '' }));
+                        }}
+                        type="email"
+                      />
+                      {modalErrors.email && <span className="text-xs text-[#FFB4AB] mt-0.5">{modalErrors.email}</span>}
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="font-label-caps text-[#857D6D] uppercase flex items-center justify-between text-xs">
+                        <span>Phone Number <span className="text-[#F2CA50]">*</span></span>
+                      </label>
+                      <input
+                        className={`w-full bg-[#05070B] border ${modalErrors.phone ? 'border-[#FFB4AB]' : 'border-white/10'} px-3.5 py-2.5 rounded-lg font-body-sm text-sm text-white placeholder:text-[#857D6D] focus:outline-none focus:border-[#F2CA50] transition-colors`}
+                        placeholder="e.g. +91 98765 43210"
+                        value={modalForm.phone}
+                        onChange={(e) => {
+                          setModalForm(prev => ({ ...prev, phone: e.target.value }));
+                          if (modalErrors.phone) setModalErrors(prev => ({ ...prev, phone: '' }));
+                        }}
+                        type="tel"
+                      />
+                      {modalErrors.phone && <span className="text-xs text-[#FFB4AB] mt-0.5">{modalErrors.phone}</span>}
+                    </div>
+                  </div>
+
+                  {/* What do you need help with? */}
+                  <div className="flex flex-col gap-2">
+                    <label className="font-label-caps text-[#857D6D] uppercase text-xs">
+                      What do you need help with? <span className="text-[#F2CA50]">*</span>
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {SERVICE_OPTIONS.map((service) => {
+                        const isSelected = modalForm.service === service;
+                        return (
+                          <button
+                            key={service}
+                            type="button"
+                            onClick={() => setModalForm(prev => ({ ...prev, service }))}
+                            className={`px-3 py-1.5 rounded-lg font-semibold text-xs tracking-wider uppercase transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-[#F2CA50] text-[#281E00] shadow-[0_0_12px_rgba(242,202,80,0.3)]'
+                                : 'bg-[#141A29] text-[#F2F4FA] border border-white/5 hover:border-[#F2CA50]/40'
+                            }`}
+                          >
+                            {service}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Tell us about your requirement */}
+                  <div className="flex flex-col gap-1">
+                    <label className="font-label-caps text-[#857D6D] uppercase flex items-center justify-between text-xs">
+                      <span>Tell us about your requirement <span className="text-[#F2CA50]">*</span></span>
+                    </label>
+                    <textarea
+                      className={`w-full bg-[#05070B] border ${modalErrors.details ? 'border-[#FFB4AB]' : 'border-white/10'} px-3.5 py-2.5 rounded-lg font-body-sm text-sm text-white placeholder:text-[#857D6D] focus:outline-none focus:border-[#F2CA50] resize-none transition-colors`}
+                      placeholder="Describe your current bottlenecks, target workflow automation, or technical deliverables..."
+                      rows={3}
+                      value={modalForm.details}
+                      onChange={(e) => {
+                        setModalForm(prev => ({ ...prev, details: e.target.value }));
+                        if (modalErrors.details) setModalErrors(prev => ({ ...prev, details: '' }));
+                      }}
+                    ></textarea>
+                    {modalErrors.details && <span className="text-xs text-[#FFB4AB] mt-0.5">{modalErrors.details}</span>}
+                  </div>
+
+                  {/* Budget / Timeline */}
+                  <div className="flex flex-col gap-1">
+                    <label className="font-label-caps text-[#857D6D] uppercase flex items-center justify-between text-xs">
+                      <span>Budget / Timeline <span className="text-xs text-[#857D6D] lowercase font-normal">(optional)</span></span>
+                    </label>
+                    <input
+                      className="w-full bg-[#05070B] border border-white/10 px-3.5 py-2.5 rounded-lg font-body-sm text-sm text-white placeholder:text-[#857D6D] focus:outline-none focus:border-[#F2CA50] transition-colors"
+                      placeholder="e.g. $10k - $25k, Launch within 6-8 weeks"
+                      value={modalForm.budgetTimeline}
+                      onChange={(e) => setModalForm(prev => ({ ...prev, budgetTimeline: e.target.value }))}
+                      type="text"
+                    />
+                  </div>
+
+                  {/* CTA Submit Button */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+                    <div className="flex items-center gap-2 text-[#857D6D] font-label-caps uppercase text-xs">
+                      <span className="material-symbols-outlined text-[#F2CA50] text-[18px]">verified_user</span>
+                      <span>Confidential &amp; Bilateral NDA</span>
+                    </div>
+                    <button
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-[#F2CA50] via-[#FFE088] to-[#F2CA50] text-[#281E00] font-bold text-xs tracking-wider uppercase hover:shadow-[0_0_25px_rgba(242,202,80,0.45)] transition-all cursor-pointer"
+                      type="submit"
+                    >
+                      <span>SEND ENQUIRY →</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
