@@ -36,9 +36,78 @@ interface EnquiryPayload {
 
 const buildWhatsAppEnquiryUrl = (data: EnquiryPayload) => {
   const budget = data.budgetTimeline && data.budgetTimeline.trim() ? data.budgetTimeline.trim() : "Not specified";
-  const message = `Hi BRAJ TECHNOLOGIES,\n\nI’d like to discuss a business/technology requirement.\n\nName: ${data.name.trim()}\nCompany: ${data.company.trim()}\nEmail: ${data.email.trim()}\nPhone: ${data.phone.trim()}\nRequirement Type: ${data.service}\nBudget / Timeline: ${budget}\n\nRequirement Details:\n${data.details.trim()}\n\nPlease get in touch with me regarding this enquiry.`;
+  const message = [
+    "New Enquiry — BRAJ TECHNOLOGIES",
+    "",
+    `Name: ${data.name.trim()}`,
+    `Company / Business: ${data.company.trim()}`,
+    `Email: ${data.email.trim()}`,
+    `Phone: ${data.phone.trim()}`,
+    "",
+    `Service Required: ${data.service ? data.service.trim() : "AI Solutions"}`,
+    "",
+    "Requirement:",
+    data.details.trim(),
+    "",
+    "Budget / Timeline:",
+    budget,
+    "",
+    "Please get in touch regarding this enquiry."
+  ].join("\n");
 
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+};
+
+const openWhatsAppUrl = (url: string) => {
+  let opened = false;
+  try {
+    const win = window.open(url, '_blank', 'noopener,noreferrer');
+    if (win && !win.closed && typeof win.closed !== 'undefined') {
+      opened = true;
+    }
+  } catch {
+    opened = false;
+  }
+
+  if (!opened) {
+    try {
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      opened = true;
+    } catch {
+      window.location.href = url;
+    }
+  }
+};
+
+const validateEnquiryForm = (form: EnquiryPayload): Record<string, string> => {
+  const errors: Record<string, string> = {};
+  if (!form.name || !form.name.trim()) {
+    errors.name = 'Name is required';
+  }
+  if (!form.company || !form.company.trim()) {
+    errors.company = 'Company / Business Name is required';
+  }
+  if (!form.email || !form.email.trim()) {
+    errors.email = 'Email is required';
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+    errors.email = 'Valid email is required';
+  }
+  if (!form.phone || !form.phone.trim()) {
+    errors.phone = 'Phone number is required';
+  }
+  if (!form.service || !form.service.trim()) {
+    errors.service = 'What do you need help with is required';
+  }
+  if (!form.details || !form.details.trim()) {
+    errors.details = 'Tell us about requirement is required';
+  }
+  return errors;
 };
 
 export default function App() {
@@ -58,6 +127,7 @@ export default function App() {
   });
   const [modalErrors, setModalErrors] = useState<Record<string, string>>({});
   const [modalSubmittedUrl, setModalSubmittedUrl] = useState<string | null>(null);
+  const [modalIsSubmitting, setModalIsSubmitting] = useState(false);
 
   // In-Page Section Form State
   const [pageForm, setPageForm] = useState<EnquiryPayload>({
@@ -71,6 +141,7 @@ export default function App() {
   });
   const [pageErrors, setPageErrors] = useState<Record<string, string>>({});
   const [pageSubmittedUrl, setPageSubmittedUrl] = useState<string | null>(null);
+  const [pageIsSubmitting, setPageIsSubmitting] = useState(false);
 
   // Subtle live telemetry pulse for real-time feel
   useEffect(() => {
@@ -103,68 +174,65 @@ export default function App() {
   }, [enquiryModalOpen]);
 
   const handleOpenEnquiryModal = (serviceDefault = 'AI Solutions') => {
-    setModalForm(prev => ({ ...prev, service: serviceDefault }));
+    setModalForm({
+      name: '',
+      company: '',
+      email: '',
+      phone: '',
+      service: serviceDefault,
+      details: '',
+      budgetTimeline: ''
+    });
     setModalErrors({});
     setModalSubmittedUrl(null);
+    setModalIsSubmitting(false);
     setEnquiryModalOpen(true);
   };
 
   const handleModalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const errors: Record<string, string> = {};
-    if (!modalForm.name.trim()) errors.name = 'Name is required';
-    if (!modalForm.company.trim()) errors.company = 'Company / Business Name is required';
-    if (!modalForm.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(modalForm.email.trim())) {
-      errors.email = 'Valid corporate email is required';
-    }
-    if (!modalForm.phone.trim()) errors.phone = 'Phone number is required';
-    if (!modalForm.details.trim()) errors.details = 'Please tell us about your requirement';
+    if (modalIsSubmitting) return;
+
+    const errors = validateEnquiryForm(modalForm);
 
     if (Object.keys(errors).length > 0) {
       setModalErrors(errors);
       return;
     }
 
+    setModalIsSubmitting(true);
     setModalErrors({});
     const url = buildWhatsAppEnquiryUrl(modalForm);
     setModalSubmittedUrl(url);
+    openWhatsAppUrl(url);
 
-    try {
-      window.open(url, '_blank', 'noopener,noreferrer');
-    } catch {
-      // Browser popup blocker fallback - user can click the button on screen
-    }
+    // Release submit lock after cooldown to prevent rapid duplicate opens
+    setTimeout(() => {
+      setModalIsSubmitting(false);
+    }, 1500);
   };
 
   const handlePageSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const errors: Record<string, string> = {};
-    if (!pageForm.name.trim()) errors.name = 'Name is required';
-    if (!pageForm.company.trim()) errors.company = 'Company / Business Name is required';
-    if (!pageForm.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pageForm.email.trim())) {
-      errors.email = 'Valid corporate email is required';
-    }
-    if (!pageForm.phone.trim()) errors.phone = 'Phone number is required';
-    if (!pageForm.details.trim()) errors.details = 'Please tell us about your requirement';
+    if (pageIsSubmitting) return;
+
+    const errors = validateEnquiryForm(pageForm);
 
     if (Object.keys(errors).length > 0) {
       setPageErrors(errors);
       return;
     }
 
+    setPageIsSubmitting(true);
     setPageErrors({});
     const url = buildWhatsAppEnquiryUrl(pageForm);
     setPageSubmittedUrl(url);
+    openWhatsAppUrl(url);
 
-    try {
-      window.open(url, '_blank', 'noopener,noreferrer');
-    } catch {
-      // Fallback
-    }
+    // Release submit lock after cooldown to prevent rapid duplicate opens
+    setTimeout(() => {
+      setPageIsSubmitting(false);
+    }, 1500);
   };
 
   const handleNavClick = () => {
@@ -526,7 +594,7 @@ export default function App() {
           </section>
 
           {/* "WHAT WE BUILD" (Enterprise Positioning - 5 Core Pillars) */}
-          <section className="w-full py-space-3xl relative bg-[#070A10]" id="what-we-build">
+          <section className="w-full py-space-3xl relative bg-[#070A10] scroll-mt-20" id="what-we-build">
             <div className="max-w-[1360px] mx-auto px-margin-mobile md:px-margin">
               <div className="flex flex-col md:flex-row md:items-end justify-between gap-space-md mb-space-2xl">
                 <div className="flex flex-col gap-space-xs max-w-2xl">
@@ -672,7 +740,7 @@ export default function App() {
           </section>
 
           {/* SECTION 4: AI SOLUTIONS (Practical, Business-Focused AI) */}
-          <section className="w-full py-space-3xl bg-[#05070B] relative border-t border-white/5" id="ai-solutions">
+          <section className="w-full py-space-3xl bg-[#05070B] relative border-t border-white/5 scroll-mt-20" id="ai-solutions">
             <div className="max-w-[1360px] mx-auto px-margin-mobile md:px-margin">
               <div className="flex flex-col md:flex-row md:items-end justify-between gap-space-md mb-space-2xl">
                 <div className="flex flex-col gap-space-xs max-w-2xl">
@@ -828,7 +896,7 @@ export default function App() {
           </section>
 
           {/* SECTION 5: SOFTWARE & AUTOMATION IN ACTION */}
-          <section className="w-full py-space-3xl bg-[#070A10] relative overflow-hidden" id="software-in-action">
+          <section className="w-full py-space-3xl bg-[#070A10] relative overflow-hidden scroll-mt-20" id="software-in-action">
             <div className="absolute inset-0 pointer-events-none -z-10">
               <div className="absolute bottom-0 right-1/4 w-[600px] h-[300px] bg-[#7BD0FF]/5 blur-[120px] rounded-full"></div>
             </div>
@@ -1033,7 +1101,7 @@ export default function App() {
           </section>
 
           {/* SECTION 6: BUSINESS GROWTH */}
-          <section className="w-full py-space-3xl bg-[#05070B] relative border-t border-white/5" id="business-growth">
+          <section className="w-full py-space-3xl bg-[#05070B] relative border-t border-white/5 scroll-mt-20" id="business-growth">
             <div className="max-w-[1360px] mx-auto px-margin-mobile md:px-margin">
               <div className="flex flex-col md:flex-row md:items-end justify-between gap-space-md mb-space-2xl">
                 <div className="flex flex-col gap-space-xs max-w-2xl">
@@ -1128,7 +1196,7 @@ export default function App() {
           </section>
 
           {/* SECTION 7: OUR VISION & PHILOSOPHY */}
-          <section className="w-full py-space-3xl relative bg-[#070A10] border-t border-white/5" id="philosophy">
+          <section className="w-full py-space-3xl relative bg-[#070A10] border-t border-white/5 scroll-mt-20" id="philosophy">
             <div className="max-w-[1360px] mx-auto px-margin-mobile md:px-margin">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-2xl items-center">
                 {/* Left Editorial Statement */}
@@ -1229,7 +1297,7 @@ export default function App() {
           </section>
 
           {/* SECTION 8: DISCOVERY BRIEF & ENGAGEMENT */}
-          <section className="w-full py-space-3xl bg-[#090D16] border-t border-white/5 relative overflow-hidden" id="contact-engagement">
+          <section className="w-full py-space-3xl bg-[#090D16] border-t border-white/5 relative overflow-hidden scroll-mt-20" id="contact-engagement">
             <div className="max-w-[1360px] mx-auto px-margin-mobile md:px-margin">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-2xl">
                 {/* Left: Liaison & Channels */}
@@ -1443,7 +1511,10 @@ export default function App() {
                               <button
                                 key={service}
                                 type="button"
-                                onClick={() => setPageForm(prev => ({ ...prev, service }))}
+                                onClick={() => {
+                                  setPageForm(prev => ({ ...prev, service }));
+                                  if (pageErrors.service) setPageErrors(prev => ({ ...prev, service: '' }));
+                                }}
                                 className={`px-3.5 py-2 rounded-lg font-semibold text-xs tracking-wider uppercase transition-all cursor-pointer ${
                                   isSelected
                                     ? 'bg-[#F2CA50] text-[#281E00] shadow-[0_0_12px_rgba(242,202,80,0.35)]'
@@ -1455,6 +1526,7 @@ export default function App() {
                             );
                           })}
                         </div>
+                        {pageErrors.service && <span className="text-xs text-[#FFB4AB] mt-0.5">{pageErrors.service}</span>}
                       </div>
 
                       {/* Tell us about your requirement */}
@@ -1826,7 +1898,10 @@ export default function App() {
                           <button
                             key={service}
                             type="button"
-                            onClick={() => setModalForm(prev => ({ ...prev, service }))}
+                            onClick={() => {
+                              setModalForm(prev => ({ ...prev, service }));
+                              if (modalErrors.service) setModalErrors(prev => ({ ...prev, service: '' }));
+                            }}
                             className={`px-3 py-1.5 rounded-lg font-semibold text-xs tracking-wider uppercase transition-all cursor-pointer ${
                               isSelected
                                 ? 'bg-[#F2CA50] text-[#281E00] shadow-[0_0_12px_rgba(242,202,80,0.3)]'
@@ -1838,6 +1913,7 @@ export default function App() {
                         );
                       })}
                     </div>
+                    {modalErrors.service && <span className="text-xs text-[#FFB4AB] mt-0.5">{modalErrors.service}</span>}
                   </div>
 
                   {/* Tell us about your requirement */}
